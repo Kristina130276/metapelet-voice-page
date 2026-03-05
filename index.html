@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MetaPelet — Поговорить</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; max-width: 720px; margin: 28px auto; padding: 0 16px; }
+    h1 { margin: 0 0 8px; }
+    .card { border: 1px solid #ddd; border-radius: 14px; padding: 16px; margin-top: 14px; }
+    button { padding: 12px 14px; border-radius: 12px; border: 1px solid #ccc; cursor: pointer; }
+    button.primary { font-weight: 600; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .muted { color:#666; font-size: 14px; }
+    textarea { width: 100%; min-height: 90px; border-radius: 12px; border:1px solid #ccc; padding: 10px; }
+    .status { margin-top: 10px; font-size: 14px; }
+    .ok { color: #0a7; }
+    .bad { color: #c20; }
+  </style>
+</head>
+<body>
+  <h1>MetaPelet</h1>
+  <div class="muted">Нажми «🎙 Поговорить», скажи фразу, затем нажми «Отправить».</div>
+
+  <div class="card">
+    <div class="row">
+      <button class="primary" id="btnRec">🎙 Поговорить</button>
+      <button id="btnStop" disabled>⏹ Стоп</button>
+      <button id="btnSend" disabled>📨 Отправить</button>
+    </div>
+
+    <div class="status" id="status">Статус: готово</div>
+
+    <h3>Ты сказала:</h3>
+    <textarea id="userText" placeholder="Текст появится тут..."></textarea>
+
+    <h3>MetaPelet ответила:</h3>
+    <textarea id="botText" placeholder="Ответ появится тут..." readonly></textarea>
+
+    <div class="row" style="margin-top:10px;">
+      <button id="btnSpeak" disabled>🔊 Озвучить ответ</button>
+      <span class="muted">Озвучка пока браузерным голосом (потом сделаем красивый).</span>
+    </div>
+  </div>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const userTextEl = document.getElementById('userText');
+  const botTextEl = document.getElementById('botText');
+
+  const btnRec = document.getElementById('btnRec');
+  const btnStop = document.getElementById('btnStop');
+  const btnSend = document.getElementById('btnSend');
+  const btnSpeak = document.getElementById('btnSpeak');
+
+  // 1) Распознавание речи (Chrome/Edge). На некоторых устройствах может не работать.
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+
+  function setStatus(text, cls) {
+    statusEl.className = 'status ' + (cls || '');
+    statusEl.textContent = 'Статус: ' + text;
+  }
+
+  if (!SpeechRecognition) {
+    setStatus('в этом браузере нет распознавания речи. Открой в Chrome/Edge', 'bad');
+    btnRec.disabled = true;
+  } else {
+    rec = new SpeechRecognition();
+    rec.lang = 'ru-RU';
+    rec.interimResults = true;
+    rec.continuous = false;
+
+    let finalText = '';
+
+    rec.onstart = () => {
+      finalText = '';
+      userTextEl.value = '';
+      setStatus('слушаю...', 'ok');
+      btnRec.disabled = true;
+      btnStop.disabled = false;
+      btnSend.disabled = true;
+    };
+
+    rec.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
+      }
+      userTextEl.value = (finalText + ' ' + interim).trim();
+    };
+
+    rec.onerror = (e) => {
+      setStatus('ошибка микрофона/разрешений: ' + e.error, 'bad');
+      btnRec.disabled = false;
+      btnStop.disabled = true;
+    };
+
+    rec.onend = () => {
+      setStatus('готово (проверь текст и нажми “Отправить”)', 'ok');
+      btnRec.disabled = false;
+      btnStop.disabled = true;
+      btnSend.disabled = userTextEl.value.trim().length === 0;
+    };
+
+    btnRec.onclick = async () => {
+      // запрос разрешения микрофона
+      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) {}
+      rec.start();
+    };
+
+    btnStop.onclick = () => {
+      try { rec.stop(); } catch(e) {}
+    };
+
+    userTextEl.addEventListener('input', () => {
+      btnSend.disabled = userTextEl.value.trim().length === 0;
+    });
+  }
+
+  // 2) Отправка на сервер (пока заглушка). Потом поставим Render URL.
+  const BACKEND_URL = ''; // позже сюда поставим: https://<твой-сервис>.onrender.com
+
+  btnSend.onclick = async () => {
+    const text = userTextEl.value.trim();
+    if (!text) return;
+
+    setStatus('отправляю на сервер...', 'ok');
+    btnSend.disabled = true;
+    btnSpeak.disabled = true;
+    botTextEl.value = '';
+
+    try {
+      // ПОКА: если BACKEND_URL пустой — делаем фейковый ответ
+      let reply = '';
+      if (!BACKEND_URL) {
+        reply = 'Я тебя слышу. (Пока я в тестовом режиме без сервера. Следующий шаг — подключаем Render.)';
+      } else {
+        const r = await fetch(BACKEND_URL + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await r.json();
+        reply = data.reply || '';
+      }
+
+      botTextEl.value = reply;
+      setStatus('ответ получен', 'ok');
+      btnSpeak.disabled = !reply;
+    } catch (e) {
+      setStatus('ошибка связи с сервером: ' + e.message, 'bad');
+    } finally {
+      btnSend.disabled = false;
+    }
+  };
+
+  // 3) Озвучка ответа (браузерный голос)
+  btnSpeak.onclick = () => {
+    const t = botTextEl.value.trim();
+    if (!t) return;
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'ru-RU';
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  };
+</script>
+</body>
+</html>
