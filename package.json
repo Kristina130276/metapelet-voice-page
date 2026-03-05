@@ -1,8 +1,11 @@
 {
   "name": "metapelet",
   "version": "1.0.0",
-  "description": "MetaPelet voice assistant page",
+  "description": "MetaPelet voice page",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.18.2"
   }
