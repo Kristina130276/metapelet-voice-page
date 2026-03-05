@@ -44,6 +44,13 @@
   </div>
 
 <script>
+const params = new URLSearchParams(window.location.search);
+const user = params.get("user");
+
+if (user) {
+  console.log("Пользователь:", user);
+}
+</script>
   const statusEl = document.getElementById('status');
   const userTextEl = document.getElementById('userText');
   const botTextEl = document.getElementById('botText');
