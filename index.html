@@ -44,140 +44,72 @@
   </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const user = params.get ("user");
-if (user) {
-  console.log("Пользователь:", user);
+const BACKEND_URL = "https://metapelet-voice-page.onrender.com";
+
+const statusEl = document.getElementById("status");
+const userTextEl = document.getElementById("userText");
+const botTextEl = document.getElementById("botText");
+const btnSpeak = document.getElementById("btnSpeak");
+
+function setStatus(text) {
+  statusEl.innerText = "Статус: " + text;
 }
-  const statusEl = document.getElementById('status');
-  const userTextEl = document.getElementById('userText');
-  const botTextEl = document.getElementById('botText');
 
-  const btnRec = document.getElementById('btnRec');
-  const btnStop = document.getElementById('btnStop');
-  const btnSend = document.getElementById('btnSend');
-  const btnSpeak = document.getElementById('btnSpeak');
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  // 1) Распознавание речи (Chrome/Edge). На некоторых устройствах может не работать.
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null;
+let rec = new SpeechRecognition();
 
-  function setStatus(text, cls) {
-    statusEl.className = 'status ' + (cls || '');
-    statusEl.textContent = 'Статус: ' + text;
-  }
+rec.lang = "ru-RU";
+rec.interimResults = false;
+rec.continuous = false;
 
-  if (!SpeechRecognition) {
-    setStatus('в этом браузере нет распознавания речи. Открой в Chrome/Edge', 'bad');
-    btnRec.disabled = true;
-  } else {
-    rec = new SpeechRecognition();
-    rec.lang = 'ru-RU';
-    rec.interimResults = true;
-    rec.continuous = false;
+rec.onstart = () => {
+  setStatus("Слушаю...");
+  userTextEl.value = "";
+};
 
-    let finalText = '';
+rec.onresult = async (event) => {
+  const text = event.results[0][0].transcript;
+  userTextEl.value = text;
 
-    rec.onstart = () => {
-      finalText = '';
-      userTextEl.value = '';
-      setStatus('слушаю...', 'ok');
-      btnRec.disabled = true;
-      btnStop.disabled = false;
-      btnSend.disabled = true;
-    };
+  setStatus("Отправляю...");
 
-    rec.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const chunk = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += chunk;
-        else interim += chunk;
-      }
-      userTextEl.value = (finalText + ' ' + interim).trim();
-    };
-
-    rec.onerror = (e) => {
-      setStatus('ошибка микрофона/разрешений: ' + e.error, 'bad');
-      btnRec.disabled = false;
-      btnStop.disabled = true;
-    };
-
-    rec.onend = () => {
-      setStatus('готово (проверь текст и нажми “Отправить”)', 'ok');
-      btnRec.disabled = false;
-      btnStop.disabled = true;
-      btnSend.disabled = userTextEl.value.trim().length === 0;
-    };
-
-    btnRec.onclick = async () => {
-      // запрос разрешения микрофона
-      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) {}
-      rec.start();
-    };
-
-    btnStop.onclick = () => {
-      try { rec.stop(); } catch(e) {}
-    };
-
-    userTextEl.addEventListener('input', () => {
-      btnSend.disabled = userTextEl.value.trim().length === 0;
+  try {
+    const r = await fetch(BACKEND_URL + "/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
     });
+
+    const data = await r.json();
+
+    const reply = data.reply || "Я рядом.";
+
+    botTextEl.value = reply;
+
+    const u = new SpeechSynthesisUtterance(reply);
+    u.lang = "ru-RU";
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+
+    setStatus("Готово");
+
+  } catch (e) {
+    setStatus("Ошибка сервера");
   }
+};
 
-  // 2) Отправка на сервер (пока заглушка). Потом поставим Render URL.
-  const BACKEND_URL = 'https://metapelet-voice-page.onrender.com';
+rec.onerror = () => {
+  setStatus("Ошибка микрофона");
+};
 
-  btnSend.onclick = async () => {
-    const text = userTextEl.value.trim();
-    if (!text) return;
-
-    setStatus('отправляю на сервер...', 'ok');
-    btnSend.disabled = true;
-    btnSpeak.disabled = true;
-    botTextEl.value = '';
-
-    try {
-      // ПОКА: если BACKEND_URL пустой — делаем фейковый ответ
-      let reply = '';
-      if (!BACKEND_URL) {
-        reply = 'Я тебя слышу. (Пока я в тестовом режиме без сервера. Следующий шаг — подключаем Render.)';
-      } else {
-        const r = await fetch(BACKEND_URL + '/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
-        });
-        const data = await r.json();
-        reply = data.reply || '';
-      }
-
-      botTextEl.value = reply;
-      setStatus('ответ получен', 'ok');
-      btnSpeak.disabled = !reply;
-    } catch (e) {
-      setStatus('ошибка связи с сервером: ' + e.message, 'bad');
-    } finally {
-      btnSend.disabled = false;
-    }
-  };
-
-  // 3) Озвучка ответа (браузерный голос)
-  btnSpeak.onclick = () => {
-    const t = botTextEl.value.trim();
-    if (!t) return;
-    const u = new SpeechSynthesisUtterance(t);
-    u.lang = 'ru-RU';
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  };
-
-if (user) {
-  const el = document.getElementById("username");
-  if (el) {
-    el.innerText = "Здравствуйте, " + user;
-  }
-}
+document.body.onclick = () => {
+  rec.start();
+};
 </script>
 </body>
 </html>
