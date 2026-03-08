@@ -115,10 +115,12 @@ rec.onresult = async (event) => {
 rec.onerror = () => {
   setStatus("Ошибка микрофона");
 };
-
 document.body.onclick = () => {
- try {
-  rec.start();
+  try {
+    rec.start();
+  } catch (e) {
+    console.log("mic already started");
+  }
 };
 </script>
 </body>
