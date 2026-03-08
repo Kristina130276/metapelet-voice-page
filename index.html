@@ -78,7 +78,7 @@ rec.onresult = async (event) => {
   setStatus("Отправляю...");
 
   try {
-    const r = await fetch(BACKEND_URL + "/api/chat", {
+    const r = await fetch(BACKEND_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
