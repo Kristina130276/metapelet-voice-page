@@ -95,7 +95,7 @@ rec.onresult = async (event) => {
 });
 
     const data = await r.json();
-
+    console.log(data);
     const reply =
   data.candidates?.[0]?.content?.parts?.[0]?.text || "Я рядом.";
     botTextEl.value = reply;
