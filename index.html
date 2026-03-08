@@ -51,11 +51,12 @@ const statusEl = document.getElementById("status");
 const userTextEl = document.getElementById("userText");
 const botTextEl = document.getElementById("botText");
 const btnSpeak = document.getElementById("btnSpeak");
-
+const params = new URLSearchParams(window.location.search);
+const userId = params.get("id");
 function setStatus(text) {
   statusEl.innerText = "Статус: " + text;
 }
-
+console.log("userId from URL:", userId);
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
