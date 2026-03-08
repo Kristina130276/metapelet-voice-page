@@ -78,18 +78,26 @@ rec.onresult = async (event) => {
   setStatus("Отправляю...");
 
   try {
-    const r = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    });
+  const r = await fetch(BACKEND_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: text }
+        ]
+      }
+    ]
+  }),
+});
 
     const data = await r.json();
 
-    const reply = data.reply || "Я рядом.";
-
+    const reply =
+  data.candidates?.[0]?.content?.parts?.[0]?.text || "Я рядом.";
     botTextEl.value = reply;
 
     const u = new SpeechSynthesisUtterance(reply);
