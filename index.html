@@ -51,6 +51,9 @@ const statusEl = document.getElementById("status");
 const userTextEl = document.getElementById("userText");
 const botTextEl = document.getElementById("botText");
 const btnSpeak = document.getElementById("btnSpeak");
+btnSpeak.onclick = () => {
+  alert("кнопка работает");
+};
 const params = new URLSearchParams(window.location.search);
 const userId = params.get("id");
 function setStatus(text) {
